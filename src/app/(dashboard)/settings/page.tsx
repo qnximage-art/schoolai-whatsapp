@@ -61,6 +61,7 @@ export default function SettingsPage() {
     deals: <DealsSettings />,
     members: <MembersTab />,
     api: <ApiKeysSettings />,
+    ai: null,
   };
 
   return (
