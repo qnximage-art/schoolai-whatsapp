@@ -222,11 +222,11 @@ export async function getAiReply(input: GetAiReplyInput): Promise<AiReplyResult>
     replyText = await callAi({ model, system: systemPrompt, messages })
   } catch (err) {
     const reason = `AI error: ${err instanceof Error ? err.message : String(err)}`
-    await upsertAiContext(conversationId, accountId, {
-      ai_active: false,
-      escalated_at: new Date().toISOString(),
-      escalation_reason: reason,
-    })
+    // Do NOT persist escalated_at on transient API errors — the next message
+    // should retry AI rather than being permanently blocked by a rate limit or
+    // network failure. Only intentional escalations (complaint keywords, human
+    // assignment) should stick across messages.
+    console.error('[school-ai] AI call failed:', reason)
     return { action: 'escalate', reason }
   }
 
