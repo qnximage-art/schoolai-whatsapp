@@ -7,8 +7,9 @@ export interface AiCallInput {
 }
 
 export async function callOpenAI(input: AiCallInput): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
+  // OPENROUTER_API_KEY takes priority so it doesn't conflict with a system-level OPENAI_API_KEY
+  const apiKey = process.env.OPENROUTER_API_KEY ?? process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY (or OPENAI_API_KEY) is not set')
 
   const client = new OpenAI({
     apiKey,
