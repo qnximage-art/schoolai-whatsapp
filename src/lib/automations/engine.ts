@@ -550,8 +550,9 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         accountId: args.automation.account_id,
         contactId: args.contactId,
         conversationId,
-        messageText: args.context.message_text,
-        model: cfg.model ?? 'haiku',
+        messageText: args.context.message_text ?? '',
+        model: cfg.model || 'claude-haiku-4-5-20251001',
+        escalate_outside_hours: cfg.escalate_outside_hours ?? true,
       })
       if (result.action === 'reply') {
         await engineSendText({

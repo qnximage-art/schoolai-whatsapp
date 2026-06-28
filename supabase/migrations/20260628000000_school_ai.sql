@@ -36,6 +36,13 @@ create policy "admins can upsert knowledge base"
       where user_id = auth.uid()
       and account_role in ('owner', 'admin')
     )
+  )
+  with check (
+    account_id in (
+      select account_id from public.profiles
+      where user_id = auth.uid()
+      and account_role in ('owner', 'admin')
+    )
   );
 
 -- AI conversation context: tracks whether AI is handling or escalated
@@ -62,4 +69,5 @@ create policy "account members can read ai context"
 
 create policy "service role can manage ai context"
   on public.ai_conversation_context for all
-  using (auth.role() = 'service_role');
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');

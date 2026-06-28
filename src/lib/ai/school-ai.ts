@@ -13,6 +13,8 @@ export interface GetAiReplyInput {
   messageText: string
   /** Full model string for the configured provider, e.g. "claude-haiku-4-5-20251001" or "gpt-4o-mini" */
   model?: string
+  /** Whether to escalate when outside configured school hours. Defaults to true. */
+  escalate_outside_hours?: boolean
 }
 
 export type AiReplyResult =
@@ -164,7 +166,7 @@ async function upsertAiContext(
 // ------------------------------------------------------------
 
 export async function getAiReply(input: GetAiReplyInput): Promise<AiReplyResult> {
-  const { accountId, contactId, conversationId, messageText, model = 'claude-haiku-4-5-20251001' } = input
+  const { accountId, contactId, conversationId, messageText, model = 'claude-haiku-4-5-20251001', escalate_outside_hours } = input
 
   // Skip empty messages
   if (!messageText.trim()) {
@@ -200,7 +202,8 @@ export async function getAiReply(input: GetAiReplyInput): Promise<AiReplyResult>
   const language =
     kb.ai_language === 'auto' ? detectLanguage(messageText) : (kb.ai_language as 'en' | 'hi')
 
-  const outsideHours = !isWithinSchoolHours(kb)
+  const shouldEscalateOutsideHours = escalate_outside_hours ?? true
+  const outsideHours = shouldEscalateOutsideHours && !isWithinSchoolHours(kb)
 
   // Load recent conversation history
   const history = await loadRecentMessages(conversationId, 5)
