@@ -551,7 +551,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         contactId: args.contactId,
         conversationId,
         messageText: args.context.message_text ?? '',
-        model: cfg.model || 'claude-haiku-4-5-20251001',
+        model: cfg.model || 'google/gemma-4-31b-it:free',
         escalate_outside_hours: cfg.escalate_outside_hours ?? true,
       })
       if (result.action === 'reply') {

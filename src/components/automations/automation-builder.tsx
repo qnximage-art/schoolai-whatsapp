@@ -165,7 +165,7 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
     case "close_conversation":
       return {}
     case "send_ai_response":
-      return { model: 'claude-haiku-4-5-20251001', escalate_outside_hours: true, fallback_agent_id: null }
+      return { model: 'google/gemma-4-31b-it:free', escalate_outside_hours: true, fallback_agent_id: null }
     default:
       return {}
   }
@@ -1262,12 +1262,12 @@ function StepEditor({
               AI Model <span className="font-normal">(must match your AI_PROVIDER)</span>
             </label>
             <Input
-              value={cfg.model ?? 'claude-haiku-4-5-20251001'}
+              value={cfg.model ?? 'google/gemma-4-31b-it:free'}
               onChange={(e) => set({ model: e.target.value })}
-              placeholder="e.g. claude-haiku-4-5-20251001 / gpt-4o-mini / openai/gpt-4o"
+              placeholder="e.g. google/gemma-4-31b-it:free / meta-llama/llama-3.3-70b-instruct:free"
             />
             <p className="text-xs text-muted-foreground">
-              Anthropic: claude-haiku-4-5-20251001 · OpenAI: gpt-4o-mini · OpenRouter: anthropic/claude-haiku-4-5
+              OpenRouter free: google/gemma-4-31b-it:free · meta-llama/llama-3.3-70b-instruct:free · qwen/qwen3-next-80b-a3b-instruct:free
             </p>
           </div>
           <div className="flex items-center justify-between">
