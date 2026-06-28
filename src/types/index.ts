@@ -388,7 +388,8 @@ export type AutomationStepType =
   | 'wait'
   | 'condition'
   | 'send_webhook'
-  | 'close_conversation';
+  | 'close_conversation'
+  | 'send_ai_response';
 
 export type AutomationLogStatus = 'success' | 'partial' | 'failed';
 
@@ -479,6 +480,13 @@ export interface SendWebhookStepConfig {
   body_template?: string;
 }
 
+export interface SendAiResponseStepConfig {
+  /** Full model string — depends on AI_PROVIDER. e.g. "claude-haiku-4-5-20251001", "gpt-4o-mini", "anthropic/claude-haiku-4-5" */
+  model: string;
+  escalate_outside_hours: boolean;
+  fallback_agent_id: string | null;
+}
+
 export type AutomationStepConfig =
   | SendMessageStepConfig
   | SendTemplateStepConfig
@@ -489,6 +497,7 @@ export type AutomationStepConfig =
   | WaitStepConfig
   | ConditionStepConfig
   | SendWebhookStepConfig
+  | SendAiResponseStepConfig
   | Record<string, never>
   | Record<string, unknown>;
 
@@ -541,4 +550,32 @@ export interface AutomationLog {
   error_message?: string | null;
   created_at: string;
   contact?: Contact;
+}
+
+export interface SchoolKnowledgeBase {
+  id: string;
+  account_id: string;
+  school_name: string;
+  school_hours: string;
+  fee_due_date: string;
+  holidays: string;
+  exam_schedule: string;
+  admission_info: string;
+  extra_faq: string;
+  ai_hours_start: string;
+  ai_hours_end: string;
+  ai_language: 'auto' | 'en' | 'hi';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AiConversationContext {
+  id: string;
+  conversation_id: string;
+  account_id: string;
+  ai_active: boolean;
+  escalated_at: string | null;
+  escalation_reason: string | null;
+  last_ai_reply_at: string | null;
+  created_at: string;
 }
