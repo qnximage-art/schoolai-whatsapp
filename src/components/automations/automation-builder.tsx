@@ -30,6 +30,7 @@ import {
   Loader2,
   ArrowDown,
   ArrowUp,
+  Bot,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -99,7 +100,7 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
   condition: { label: "Condition (If/Else)", icon: GitBranch, border: "border-l-amber-500" },
   send_webhook: { label: "Send Webhook", icon: Webhook, border: "border-l-primary" },
   close_conversation: { label: "Close Conversation", icon: CircleSlash, border: "border-l-primary" },
-  send_ai_response: { label: "Send AI Response", icon: Zap, border: "border-l-primary" },
+  send_ai_response: { label: "AI Auto-Reply", icon: Bot, border: "border-l-violet-500" },
 }
 
 const ADDABLE_STEPS: AutomationStepType[] = [
@@ -163,6 +164,8 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return { url: "", headers: {}, body_template: "" }
     case "close_conversation":
       return {}
+    case "send_ai_response":
+      return { model: 'claude-haiku-4-5-20251001', escalate_outside_hours: true, fallback_agent_id: null }
     default:
       return {}
   }
@@ -1250,6 +1253,33 @@ function StepEditor({
           Sets the conversation status to &quot;closed&quot;. No configuration needed.
         </p>
       )
+    case "send_ai_response": {
+      const cfg = step.step_config as { model: string; escalate_outside_hours: boolean; fallback_agent_id: string | null }
+      return (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">
+              AI Model <span className="font-normal">(must match your AI_PROVIDER)</span>
+            </label>
+            <Input
+              value={cfg.model ?? 'claude-haiku-4-5-20251001'}
+              onChange={(e) => set({ model: e.target.value })}
+              placeholder="e.g. claude-haiku-4-5-20251001 / gpt-4o-mini / openai/gpt-4o"
+            />
+            <p className="text-xs text-muted-foreground">
+              Anthropic: claude-haiku-4-5-20251001 · OpenAI: gpt-4o-mini · OpenRouter: anthropic/claude-haiku-4-5
+            </p>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Escalate outside school hours</span>
+            <Switch
+              checked={cfg.escalate_outside_hours ?? true}
+              onCheckedChange={(v) => set({ escalate_outside_hours: v })}
+            />
+          </div>
+        </div>
+      )
+    }
     default:
       return null
   }
