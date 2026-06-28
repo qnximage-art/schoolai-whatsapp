@@ -7,22 +7,10 @@ vi.mock('./client', () => ({
   callAi: vi.fn(),
 }))
 
-// Mock supabase admin
+// Mock supabase admin — default returns mockKb for KB lookup
+// Individual tests may override with mockReturnValueOnce
 vi.mock('@/lib/automations/admin-client', () => ({
-  supabaseAdmin: vi.fn(() => ({
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({ maybeSingle: vi.fn(async () => ({ data: null, error: null })) })),
-          order: vi.fn(() => ({
-            limit: vi.fn(async () => ({ data: [], error: null })),
-          })),
-          maybeSingle: vi.fn(async () => ({ data: null, error: null })),
-        })),
-      })),
-      upsert: vi.fn(async () => ({ error: null })),
-    })),
-  })),
+  supabaseAdmin: vi.fn(),
 }))
 
 const mockKb: SchoolKnowledgeBase = {
@@ -69,8 +57,26 @@ describe('buildSchoolPrompt', () => {
   })
 })
 
+function makeSupabaseMock(kbData: SchoolKnowledgeBase | null) {
+  return {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: kbData, error: null }),
+          order: vi.fn(() => ({ limit: vi.fn(async () => ({ data: [], error: null })) })),
+        })),
+      })),
+      upsert: vi.fn(async () => ({ error: null })),
+    })),
+  }
+}
+
 describe('getAiReply', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    const { supabaseAdmin } = await import('@/lib/automations/admin-client')
+    vi.mocked(supabaseAdmin).mockReturnValue(makeSupabaseMock(mockKb) as any)
+  })
 
   it('returns reply action when AI gives confident response', async () => {
     const { callAi } = await import('./client')
@@ -144,10 +150,31 @@ describe('getAiReply', () => {
 
     expect(result.action).toBe('escalate')
   })
+
+  it('escalates when no knowledge base is configured', async () => {
+    const { supabaseAdmin } = await import('@/lib/automations/admin-client')
+    vi.mocked(supabaseAdmin).mockReturnValue(makeSupabaseMock(null) as any)
+
+    const result = await getAiReply({
+      accountId: 'acc-1',
+      contactId: 'con-1',
+      conversationId: 'cv-1',
+      messageText: 'What time does school start?',
+    })
+
+    expect(result.action).toBe('escalate')
+    if (result.action === 'escalate') {
+      expect(result.reason).toBe('no knowledge base configured')
+    }
+  })
 })
 
 describe('getSuggestedReply', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    const { supabaseAdmin } = await import('@/lib/automations/admin-client')
+    vi.mocked(supabaseAdmin).mockReturnValue(makeSupabaseMock(mockKb) as any)
+  })
 
   it('returns suggestion text from AI', async () => {
     const { callAi } = await import('./client')

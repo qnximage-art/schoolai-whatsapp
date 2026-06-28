@@ -188,21 +188,24 @@ export async function getAiReply(input: GetAiReplyInput): Promise<AiReplyResult>
 
   // Load knowledge base
   const kb = await loadKnowledgeBase(accountId)
+  if (!kb) {
+    await upsertAiContext(conversationId, accountId, {
+      ai_active: false,
+      escalated_at: new Date().toISOString(),
+      escalation_reason: 'no knowledge base configured',
+    })
+    return { action: 'escalate', reason: 'no knowledge base configured' }
+  }
 
-  const language = kb
-    ? kb.ai_language === 'auto'
-      ? detectLanguage(messageText)
-      : (kb.ai_language as 'en' | 'hi')
-    : detectLanguage(messageText)
+  const language =
+    kb.ai_language === 'auto' ? detectLanguage(messageText) : (kb.ai_language as 'en' | 'hi')
 
-  const outsideHours = kb ? !isWithinSchoolHours(kb) : false
+  const outsideHours = !isWithinSchoolHours(kb)
 
   // Load recent conversation history
   const history = await loadRecentMessages(conversationId, 5)
 
-  const systemPrompt = kb
-    ? buildSchoolPrompt(kb, language)
-    : `You are a helpful school assistant. Answer parent questions concisely and friendly. If you cannot answer confidently, say "I'm not sure, please contact the school directly."`
+  const systemPrompt = buildSchoolPrompt(kb, language)
 
   const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
     ...history,
