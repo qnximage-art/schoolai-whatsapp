@@ -31,6 +31,7 @@ import {
   ArrowDown,
   ArrowUp,
   Bot,
+  LayoutList,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -101,6 +102,7 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
   send_webhook: { label: "Send Webhook", icon: Webhook, border: "border-l-primary" },
   close_conversation: { label: "Close Conversation", icon: CircleSlash, border: "border-l-primary" },
   send_ai_response: { label: "AI Auto-Reply", icon: Bot, border: "border-l-violet-500" },
+  send_interactive_menu: { label: "Interactive Menu", icon: LayoutList, border: "border-l-cyan-500" },
 }
 
 const ADDABLE_STEPS: AutomationStepType[] = [
@@ -116,6 +118,7 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   "send_webhook",
   "close_conversation",
   "send_ai_response",
+  "send_interactive_menu",
 ]
 
 const TRIGGER_OPTIONS: { value: AutomationTriggerType; label: string; hint: string }[] = [
@@ -166,6 +169,22 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return {}
     case "send_ai_response":
       return { model: 'google/gemma-4-26b-a4b-it:free', escalate_outside_hours: true, fallback_agent_id: null }
+    case "send_interactive_menu":
+      return {
+        header_text: 'Welcome to Sunrise Public School!',
+        body_text: 'How can I help you today?',
+        footer_text: 'Tap to choose an option',
+        button_label: 'See options',
+        section_title: 'Main Menu',
+        rows: [
+          { id: 'timing', title: 'School timings', description: 'Mon-Sat 8AM-4PM' },
+          { id: 'fees', title: 'Fee information', description: 'Due dates and payment' },
+          { id: 'exam', title: 'Exam schedule', description: 'Tests and results' },
+          { id: 'holiday', title: 'Holiday list', description: 'Upcoming holidays' },
+          { id: 'admission', title: 'Admission info', description: 'Enrollment process' },
+          { id: 'admin', title: 'Speak to admin', description: 'Connect to a human' },
+        ],
+      }
     default:
       return {}
   }
@@ -1276,6 +1295,111 @@ function StepEditor({
               checked={cfg.escalate_outside_hours ?? true}
               onCheckedChange={(v) => set({ escalate_outside_hours: v })}
             />
+          </div>
+        </div>
+      )
+    }
+    case "send_interactive_menu": {
+      const cfg = step.step_config as {
+        header_text?: string
+        body_text: string
+        footer_text?: string
+        button_label: string
+        section_title?: string
+        rows: Array<{ id: string; title: string; description?: string }>
+      }
+      const rows: Array<{ id: string; title: string; description?: string }> = cfg.rows ?? []
+      return (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Header text (optional)</label>
+            <Input
+              value={cfg.header_text ?? ''}
+              onChange={(e) => set({ header_text: e.target.value })}
+              placeholder="e.g. Welcome to Sunrise Public School!"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Body text *</label>
+            <Textarea
+              value={cfg.body_text ?? ''}
+              onChange={(e) => set({ body_text: e.target.value })}
+              placeholder="How can I help you today?"
+              rows={2}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Button label (max 20 chars)</label>
+            <Input
+              value={cfg.button_label ?? ''}
+              onChange={(e) => set({ button_label: e.target.value })}
+              placeholder="See options"
+              maxLength={20}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Footer text (optional)</label>
+            <Input
+              value={cfg.footer_text ?? ''}
+              onChange={(e) => set({ footer_text: e.target.value })}
+              placeholder="Tap to choose an option"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Menu rows ({rows.length}/10)</label>
+            {rows.map((row, i) => (
+              <div key={i} className="flex gap-1 items-start border border-border rounded p-2">
+                <div className="flex-1 space-y-1 min-w-0">
+                  <Input
+                    value={row.id}
+                    onChange={(e) => {
+                      const updated = rows.map((r, idx) => idx === i ? { ...r, id: e.target.value } : r)
+                      set({ rows: updated })
+                    }}
+                    placeholder="id (e.g. fees)"
+                    className="text-xs h-7"
+                  />
+                  <Input
+                    value={row.title}
+                    onChange={(e) => {
+                      const updated = rows.map((r, idx) => idx === i ? { ...r, title: e.target.value } : r)
+                      set({ rows: updated })
+                    }}
+                    placeholder="title (max 24 chars)"
+                    maxLength={24}
+                    className="text-xs h-7"
+                  />
+                  <Input
+                    value={row.description ?? ''}
+                    onChange={(e) => {
+                      const updated = rows.map((r, idx) => idx === i ? { ...r, description: e.target.value } : r)
+                      set({ rows: updated })
+                    }}
+                    placeholder="description (optional, max 72 chars)"
+                    maxLength={72}
+                    className="text-xs h-7"
+                  />
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => set({ rows: rows.filter((_, idx) => idx !== i) })}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+            {rows.length < 10 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-7 text-xs"
+                onClick={() => set({ rows: [...rows, { id: '', title: '', description: '' }] })}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add row
+              </Button>
+            )}
           </div>
         </div>
       )

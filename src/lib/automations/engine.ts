@@ -14,9 +14,10 @@ import type {
   CreateDealStepConfig,
   AssignConversationStepConfig,
   SendAiResponseStepConfig,
+  SendInteractiveMenuStepConfig,
 } from '@/types'
 import { supabaseAdmin } from './admin-client'
-import { engineSendText, engineSendTemplate } from './meta-send'
+import { engineSendText, engineSendTemplate, engineSendInteractiveList } from './meta-send'
 import { getAiReply } from '@/lib/ai/school-ai'
 
 // ------------------------------------------------------------
@@ -574,6 +575,25 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         )
         return `escalated: ${result.reason}`
       }
+    }
+
+    case 'send_interactive_menu': {
+      const cfg = step.step_config as SendInteractiveMenuStepConfig
+      if (!args.contactId) throw new Error('send_interactive_menu needs a contact')
+      const conversationId = await resolveConversationId(args)
+      await engineSendInteractiveList({
+        accountId: args.automation.account_id,
+        userId: args.automation.user_id,
+        conversationId,
+        contactId: args.contactId,
+        headerText: cfg.header_text,
+        bodyText: cfg.body_text || 'How can I help you?',
+        footerText: cfg.footer_text,
+        buttonLabel: cfg.button_label || 'See options',
+        sectionTitle: cfg.section_title,
+        rows: cfg.rows ?? [],
+      })
+      return 'interactive menu sent'
     }
 
     case 'close_conversation': {

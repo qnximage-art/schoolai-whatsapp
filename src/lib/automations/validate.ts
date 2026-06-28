@@ -138,6 +138,9 @@ function validateOne(step: StepLike, path: string, issues: ValidationIssue[]): v
     case 'send_ai_response':
       // model is optional (falls back to default); no required fields.
       break
+    case 'send_interactive_menu':
+      // no required fields beyond rows length — engine handles defaults
+      break
     default:
       issues.push({ path, message: `unknown step type: ${step.step_type}` })
   }

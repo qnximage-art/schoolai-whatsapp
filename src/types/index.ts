@@ -389,7 +389,8 @@ export type AutomationStepType =
   | 'condition'
   | 'send_webhook'
   | 'close_conversation'
-  | 'send_ai_response';
+  | 'send_ai_response'
+  | 'send_interactive_menu';
 
 export type AutomationLogStatus = 'success' | 'partial' | 'failed';
 
@@ -480,6 +481,21 @@ export interface SendWebhookStepConfig {
   body_template?: string;
 }
 
+export interface InteractiveMenuRow {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+export interface SendInteractiveMenuStepConfig {
+  header_text?: string;
+  body_text: string;
+  footer_text?: string;
+  button_label: string;
+  section_title?: string;
+  rows: InteractiveMenuRow[];
+}
+
 export interface SendAiResponseStepConfig {
   /** Full model string — depends on AI_PROVIDER. e.g. "claude-haiku-4-5-20251001", "gpt-4o-mini", "anthropic/claude-haiku-4-5" */
   model: string;
@@ -498,6 +514,7 @@ export type AutomationStepConfig =
   | ConditionStepConfig
   | SendWebhookStepConfig
   | SendAiResponseStepConfig
+  | SendInteractiveMenuStepConfig
   | Record<string, never>
   | Record<string, unknown>;
 
