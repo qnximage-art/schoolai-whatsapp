@@ -18,6 +18,7 @@ import {
   Square,
   X,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -122,6 +123,7 @@ export function MessageComposer({
 }: MessageComposerProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [aiSuggesting, setAiSuggesting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
@@ -259,6 +261,26 @@ export function MessageComposer({
     },
     [stageUpload],
   );
+
+  const handleAiSuggest = useCallback(async () => {
+    setAiSuggesting(true)
+    try {
+      const res = await fetch('/api/ai/suggest-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId }),
+      })
+      if (!res.ok) throw new Error('AI unavailable')
+      const data = await res.json()
+      if (data.suggestion) {
+        setText(data.suggestion)
+      }
+    } catch {
+      toast.error('Could not get AI suggestion')
+    } finally {
+      setAiSuggesting(false)
+    }
+  }, [conversationId])
 
   // ---- Voice recording (client-side Ogg/Opus, no server transcode) ---
 
@@ -522,6 +544,22 @@ export function MessageComposer({
           >
             <LayoutTemplate className="h-4 w-4" />
           </GatedButton>
+
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 shrink-0"
+            onClick={handleAiSuggest}
+            disabled={aiSuggesting || sessionExpired}
+            title="AI Suggest Reply"
+          >
+            {aiSuggesting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+          </Button>
 
           <textarea
             ref={textareaRef}
