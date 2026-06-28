@@ -13,9 +13,11 @@ import type {
   WaitStepConfig,
   CreateDealStepConfig,
   AssignConversationStepConfig,
+  SendAiResponseStepConfig,
 } from '@/types'
 import { supabaseAdmin } from './admin-client'
 import { engineSendText, engineSendTemplate } from './meta-send'
+import { getAiReply } from '@/lib/ai/school-ai'
 
 // ------------------------------------------------------------
 // Public API
@@ -535,6 +537,42 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       })
       if (!res.ok) throw new Error(`webhook returned ${res.status}`)
       return `webhook ${res.status}`
+    }
+
+    case 'send_ai_response': {
+      const cfg = step.step_config as SendAiResponseStepConfig
+      if (!args.contactId) throw new Error('send_ai_response needs a contact')
+      if (!args.context.message_text) {
+        return 'skipped: no message text (non-text message)'
+      }
+      const conversationId = await resolveConversationId(args)
+      const result = await getAiReply({
+        accountId: args.automation.account_id,
+        contactId: args.contactId,
+        conversationId,
+        messageText: args.context.message_text,
+        model: cfg.model ?? 'haiku',
+      })
+      if (result.action === 'reply') {
+        await engineSendText({
+          accountId: args.automation.account_id,
+          userId: args.automation.user_id,
+          conversationId,
+          contactId: args.contactId,
+          text: result.text,
+        })
+        return `ai replied (${result.language})`
+      } else {
+        // Assign to agent — reuse existing assign logic
+        const assignCfg = cfg.fallback_agent_id
+          ? { mode: 'specific' as const, agent_id: cfg.fallback_agent_id }
+          : { mode: 'round_robin' as const }
+        await runStep(
+          { ...step, step_type: 'assign_conversation', step_config: assignCfg },
+          args,
+        )
+        return `escalated: ${result.reason}`
+      }
     }
 
     case 'close_conversation': {
