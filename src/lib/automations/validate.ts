@@ -135,6 +135,9 @@ function validateOne(step: StepLike, path: string, issues: ValidationIssue[]): v
     case 'close_conversation':
       // No config required.
       break
+    case 'send_ai_response':
+      // model is optional (falls back to default); no required fields.
+      break
     default:
       issues.push({ path, message: `unknown step type: ${step.step_type}` })
   }
