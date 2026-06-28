@@ -4,9 +4,9 @@
 
 **Goal:** Add AI-powered FAQ auto-reply, smart escalation, multilingual support, and agent suggest-reply to the wacrm school WhatsApp CRM.
 
-**Architecture:** A new `src/lib/ai/` module wraps the Anthropic SDK and handles all AI logic. A new automation step `send_ai_response` plugs into the existing engine. A Settings page lets admins fill in the school knowledge base that the AI draws from.
+**Architecture:** A new `src/lib/ai/` module provides a provider-agnostic `callAi()` interface with adapters for Anthropic, OpenAI, and OpenRouter. A new automation step `send_ai_response` plugs into the existing engine. A Settings page lets admins fill in the school knowledge base that the AI draws from.
 
-**Tech Stack:** Next.js 16 App Router, TypeScript, Supabase (PostgreSQL + RLS), Anthropic SDK (`@anthropic-ai/sdk`), shadcn/ui, Vitest
+**Tech Stack:** Next.js 16 App Router, TypeScript, Supabase (PostgreSQL + RLS), `@anthropic-ai/sdk` + `openai` SDK, shadcn/ui, Vitest
 
 ## Global Constraints
 
@@ -15,7 +15,8 @@
 - All new DB tables must have RLS policies scoped to `account_id`
 - Follow existing file naming: kebab-case files, PascalCase components
 - Never throw from automation engine steps — return a string detail or throw a typed Error that the engine catches
-- Model IDs: `claude-haiku-4-5-20251001` (default), `claude-sonnet-4-6` (quality)
+- Provider selected via `AI_PROVIDER` env var: `anthropic` | `openai` | `openrouter` (default: `anthropic`)
+- Model string is free-form and passed through to the provider — caller picks the right model ID for their provider
 - All new API routes require auth via existing middleware (no extra auth code needed)
 - Vitest for tests — run with `npm test`
 
@@ -27,7 +28,9 @@
 | File | Responsibility |
 |------|---------------|
 | `supabase/migrations/20260628000000_school_ai.sql` | Creates `school_knowledge_base` and `ai_conversation_context` tables with RLS |
-| `src/lib/ai/client.ts` | Thin Anthropic SDK wrapper — `callClaude()` |
+| `src/lib/ai/client.ts` | Provider-agnostic `callAi()` — reads `AI_PROVIDER` and delegates |
+| `src/lib/ai/providers/anthropic.ts` | Anthropic SDK adapter |
+| `src/lib/ai/providers/openai.ts` | OpenAI SDK adapter (also used for OpenRouter) |
 | `src/lib/ai/school-ai.ts` | Core AI logic — `buildSchoolPrompt`, `getAiReply`, `getSuggestedReply` |
 | `src/lib/ai/school-ai.test.ts` | Unit tests for all AI logic |
 | `src/app/api/ai/suggest-reply/route.ts` | `POST /api/ai/suggest-reply` endpoint |
@@ -42,7 +45,7 @@
 | `src/components/automations/automation-builder.tsx` | Add `send_ai_response` to `STEP_META`, `ADDABLE_STEPS`, and `blankConfig()`, add its config editor UI |
 | `src/components/inbox/message-composer.tsx` | Add "AI Suggest" button to toolbar |
 | `src/components/settings/settings-sections.ts` | Add `'ai'` section |
-| `.env.local.example` | Add `ANTHROPIC_API_KEY` |
+| `.env.local.example` | Add `AI_PROVIDER`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
 
 ---
 
@@ -193,7 +196,8 @@ After the `SendWebhookStepConfig` interface (around line 480), add:
 
 ```ts
 export interface SendAiResponseStepConfig {
-  model: 'haiku' | 'sonnet';
+  /** Full model string — depends on AI_PROVIDER. e.g. "claude-haiku-4-5-20251001", "gpt-4o-mini", "anthropic/claude-haiku-4-5" */
+  model: string;
   escalate_outside_hours: boolean;
   fallback_agent_id: string | null;
 }
@@ -285,58 +289,75 @@ git commit -m "feat: add send_ai_response step type and school AI interfaces"
 
 ---
 
-## Task 3: Anthropic SDK + AI Client
+## Task 3: Provider-Agnostic AI Client
 
 **Files:**
+- Create: `src/lib/ai/providers/anthropic.ts`
+- Create: `src/lib/ai/providers/openai.ts`
 - Create: `src/lib/ai/client.ts`
 
 **Interfaces:**
-- Consumes: `ANTHROPIC_API_KEY` env var
-- Produces: `callClaude({ model, system, messages }): Promise<string>` — consumed by Task 4
+- Consumes: `AI_PROVIDER`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL` env vars
+- Produces: `callAi({ model, system, messages }): Promise<string>` — consumed by Task 4
 
-- [ ] **Step 1: Install the Anthropic SDK**
+> Switching provider = change `AI_PROVIDER` + supply the right API key. No code changes needed.
+
+- [ ] **Step 1: Install both SDKs**
 
 ```bash
-npm install @anthropic-ai/sdk
+npm install @anthropic-ai/sdk openai
 ```
 
-Expected: package added to `node_modules`, `package.json` updated.
+Expected: both packages added to `node_modules`, `package.json` updated.
 
-- [ ] **Step 2: Add `ANTHROPIC_API_KEY` to `.env.local.example`**
+- [ ] **Step 2: Update `.env.local.example`**
 
 Open `.env.local.example` and append:
 
 ```env
 # AI features (School AI Core)
+# Set AI_PROVIDER to: anthropic | openai | openrouter
+AI_PROVIDER=anthropic
+
+# Anthropic (AI_PROVIDER=anthropic)
 ANTHROPIC_API_KEY=sk-ant-...
+
+# OpenAI (AI_PROVIDER=openai)
+# OPENAI_API_KEY=sk-...
+# OPENAI_BASE_URL=https://api.openai.com/v1   # optional, this is the default
+
+# OpenRouter — access 200+ models via OpenAI SDK (AI_PROVIDER=openrouter)
+# OPENAI_API_KEY=sk-or-...
+# OPENAI_BASE_URL=https://openrouter.ai/api/v1
 ```
 
-- [ ] **Step 3: Create `src/lib/ai/client.ts`**
+**Model strings per provider (use these in automation step config):**
+
+| Provider | Fast / cheap | High quality |
+|---|---|---|
+| `anthropic` | `claude-haiku-4-5-20251001` | `claude-sonnet-4-6` |
+| `openai` | `gpt-4o-mini` | `gpt-4o` |
+| `openrouter` | `anthropic/claude-haiku-4-5` | `openai/gpt-4o` or `google/gemini-pro` |
+
+- [ ] **Step 3: Create `src/lib/ai/providers/anthropic.ts`**
 
 ```ts
 import Anthropic from '@anthropic-ai/sdk'
 
-const MODEL_IDS = {
-  haiku: 'claude-haiku-4-5-20251001',
-  sonnet: 'claude-sonnet-4-6',
-} as const
-
-export type AiModel = keyof typeof MODEL_IDS
-
-interface CallClaudeInput {
-  model: AiModel
+export interface AiCallInput {
+  model: string
   system: string
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
-export async function callClaude(input: CallClaudeInput): Promise<string> {
+export async function callAnthropic(input: AiCallInput): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
 
   const client = new Anthropic({ apiKey })
 
   const response = await client.messages.create({
-    model: MODEL_IDS[input.model],
+    model: input.model,
     max_tokens: 1024,
     system: input.system,
     messages: input.messages,
@@ -344,14 +365,85 @@ export async function callClaude(input: CallClaudeInput): Promise<string> {
 
   const block = response.content[0]
   if (block.type !== 'text' || !block.text.trim()) {
-    throw new Error('Claude returned empty response')
+    throw new Error('Anthropic returned empty response')
   }
 
   return block.text.trim()
 }
 ```
 
-- [ ] **Step 4: Verify TypeScript compiles**
+- [ ] **Step 4: Create `src/lib/ai/providers/openai.ts`**
+
+This adapter works for OpenAI **and** OpenRouter — both use the OpenAI SDK interface. Set `OPENAI_BASE_URL` to switch between them.
+
+```ts
+import OpenAI from 'openai'
+
+export interface AiCallInput {
+  model: string
+  system: string
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+}
+
+export async function callOpenAI(input: AiCallInput): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
+
+  const client = new OpenAI({
+    apiKey,
+    // OPENAI_BASE_URL switches between OpenAI and OpenRouter:
+    //   https://api.openai.com/v1      → OpenAI (default if not set)
+    //   https://openrouter.ai/api/v1   → OpenRouter
+    baseURL: process.env.OPENAI_BASE_URL,
+  })
+
+  const response = await client.chat.completions.create({
+    model: input.model,
+    max_tokens: 1024,
+    messages: [
+      { role: 'system', content: input.system },
+      ...input.messages,
+    ],
+  })
+
+  const text = response.choices[0]?.message?.content?.trim()
+  if (!text) throw new Error('OpenAI returned empty response')
+
+  return text
+}
+```
+
+- [ ] **Step 5: Create `src/lib/ai/client.ts`**
+
+```ts
+import type { AiCallInput } from './providers/anthropic'
+
+export type { AiCallInput }
+
+/**
+ * Provider-agnostic AI call. Switch provider by setting AI_PROVIDER env var.
+ * No code changes needed to swap between Anthropic, OpenAI, or OpenRouter.
+ */
+export async function callAi(input: AiCallInput): Promise<string> {
+  const provider = process.env.AI_PROVIDER ?? 'anthropic'
+
+  switch (provider) {
+    case 'anthropic': {
+      const { callAnthropic } = await import('./providers/anthropic')
+      return callAnthropic(input)
+    }
+    case 'openai':
+    case 'openrouter': {
+      const { callOpenAI } = await import('./providers/openai')
+      return callOpenAI(input)
+    }
+    default:
+      throw new Error(`Unknown AI_PROVIDER: "${provider}". Use anthropic | openai | openrouter`)
+  }
+}
+```
+
+- [ ] **Step 6: Verify TypeScript compiles**
 
 ```bash
 npx tsc --noEmit
@@ -359,11 +451,11 @@ npx tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/lib/ai/client.ts .env.local.example package.json package-lock.json
-git commit -m "feat: add Anthropic SDK client wrapper"
+git add src/lib/ai/client.ts src/lib/ai/providers/anthropic.ts src/lib/ai/providers/openai.ts .env.local.example package.json package-lock.json
+git commit -m "feat: add provider-agnostic AI client (Anthropic, OpenAI, OpenRouter)"
 ```
 
 ---
@@ -375,7 +467,7 @@ git commit -m "feat: add Anthropic SDK client wrapper"
 - Create: `src/lib/ai/school-ai.test.ts`
 
 **Interfaces:**
-- Consumes: `callClaude()` from `src/lib/ai/client.ts`, `SchoolKnowledgeBase` + `AiConversationContext` from `src/types/index.ts`, `supabaseAdmin` from `src/lib/automations/admin-client.ts`
+- Consumes: `callAi()` from `src/lib/ai/client.ts`, `SchoolKnowledgeBase` + `AiConversationContext` from `src/types/index.ts`, `supabaseAdmin` from `src/lib/automations/admin-client.ts`
 - Produces:
   - `buildSchoolPrompt(kb: SchoolKnowledgeBase, language: 'en' | 'hi'): string`
   - `getAiReply(input: GetAiReplyInput): Promise<AiReplyResult>`
@@ -392,7 +484,7 @@ import type { SchoolKnowledgeBase } from '@/types'
 
 // Mock the Claude client
 vi.mock('./client', () => ({
-  callClaude: vi.fn(),
+  callAi: vi.fn(),
 }))
 
 // Mock supabase admin
@@ -460,9 +552,9 @@ describe('buildSchoolPrompt', () => {
 describe('getAiReply', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('returns reply action when Claude gives confident response', async () => {
-    const { callClaude } = await import('./client')
-    vi.mocked(callClaude).mockResolvedValue('School timings are Mon-Sat 8am to 4pm.')
+  it('returns reply action when AI gives confident response', async () => {
+    const { callAi } = await import('./client')
+    vi.mocked(callAi).mockResolvedValue('School timings are Mon-Sat 8am to 4pm.')
 
     const result = await getAiReply({
       accountId: 'acc-1',
@@ -477,9 +569,9 @@ describe('getAiReply', () => {
     }
   })
 
-  it('escalates when Claude response contains uncertainty phrase', async () => {
-    const { callClaude } = await import('./client')
-    vi.mocked(callClaude).mockResolvedValue("I'm not sure about that. Please contact the school.")
+  it('escalates when AI response contains uncertainty phrase', async () => {
+    const { callAi } = await import('./client')
+    vi.mocked(callAi).mockResolvedValue("I'm not sure about that. Please contact the school.")
 
     const result = await getAiReply({
       accountId: 'acc-1',
@@ -492,8 +584,8 @@ describe('getAiReply', () => {
   })
 
   it('escalates when message contains urgent keyword', async () => {
-    const { callClaude } = await import('./client')
-    vi.mocked(callClaude).mockResolvedValue('I will help you.')
+    const { callAi } = await import('./client')
+    vi.mocked(callAi).mockResolvedValue('I will help you.')
 
     const result = await getAiReply({
       accountId: 'acc-1',
@@ -505,9 +597,9 @@ describe('getAiReply', () => {
     expect(result.action).toBe('escalate')
   })
 
-  it('escalates when Claude API throws', async () => {
-    const { callClaude } = await import('./client')
-    vi.mocked(callClaude).mockRejectedValue(new Error('API timeout'))
+  it('escalates when AI API throws', async () => {
+    const { callAi } = await import('./client')
+    vi.mocked(callAi).mockRejectedValue(new Error('API timeout'))
 
     const result = await getAiReply({
       accountId: 'acc-1',
@@ -537,9 +629,9 @@ describe('getAiReply', () => {
 describe('getSuggestedReply', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('returns suggestion text from Claude', async () => {
-    const { callClaude } = await import('./client')
-    vi.mocked(callClaude).mockResolvedValue('You can pay fees by the 10th of each month.')
+  it('returns suggestion text from AI', async () => {
+    const { callAi } = await import('./client')
+    vi.mocked(callAi).mockResolvedValue('You can pay fees by the 10th of each month.')
 
     const result = await getSuggestedReply({
       accountId: 'acc-1',
@@ -564,7 +656,7 @@ Expected: FAIL — `school-ai` module not found.
 ```ts
 import type { SchoolKnowledgeBase } from '@/types'
 import { supabaseAdmin } from '@/lib/automations/admin-client'
-import { callClaude, type AiModel } from './client'
+import { callAi } from './client'
 
 // ------------------------------------------------------------
 // Types
@@ -575,7 +667,8 @@ export interface GetAiReplyInput {
   contactId: string
   conversationId: string
   messageText: string
-  model?: AiModel
+  /** Full model string for the configured provider, e.g. "claude-haiku-4-5-20251001" or "gpt-4o-mini" */
+  model?: string
 }
 
 export type AiReplyResult =
@@ -585,7 +678,8 @@ export type AiReplyResult =
 export interface GetSuggestedReplyInput {
   accountId: string
   conversationId: string
-  model?: AiModel
+  /** Full model string for the configured provider */
+  model?: string
 }
 
 // ------------------------------------------------------------
@@ -726,7 +820,7 @@ async function upsertAiContext(
 // ------------------------------------------------------------
 
 export async function getAiReply(input: GetAiReplyInput): Promise<AiReplyResult> {
-  const { accountId, contactId, conversationId, messageText, model = 'haiku' } = input
+  const { accountId, contactId, conversationId, messageText, model = 'claude-haiku-4-5-20251001' } = input
 
   // Skip empty messages
   if (!messageText.trim()) {
@@ -775,7 +869,7 @@ export async function getAiReply(input: GetAiReplyInput): Promise<AiReplyResult>
 
   let replyText: string
   try {
-    replyText = await callClaude({ model, system: systemPrompt, messages })
+    replyText = await callAi({ model, system: systemPrompt, messages })
   } catch (err) {
     const reason = `AI error: ${err instanceof Error ? err.message : String(err)}`
     await upsertAiContext(conversationId, accountId, {
@@ -806,7 +900,7 @@ export async function getAiReply(input: GetAiReplyInput): Promise<AiReplyResult>
 }
 
 export async function getSuggestedReply(input: GetSuggestedReplyInput): Promise<{ suggestion: string }> {
-  const { accountId, conversationId, model = 'haiku' } = input
+  const { accountId, conversationId, model = 'claude-haiku-4-5-20251001' } = input
 
   const kb = await loadKnowledgeBase(accountId)
   const history = await loadRecentMessages(conversationId, 10)
@@ -830,7 +924,7 @@ Suggest a short, friendly reply based on the conversation.`
     ? [...history, { role: 'user', content: 'Suggest a reply for the last parent message.' }]
     : [{ role: 'user', content: 'Suggest a friendly reply to start the conversation.' }]
 
-  const suggestion = await callClaude({ model, system, messages })
+  const suggestion = await callAi({ model, system, messages })
   return { suggestion }
 }
 ```
@@ -984,7 +1078,7 @@ Find `function blankConfig(type: AutomationStepType)` and add this case before t
 
 ```ts
     case 'send_ai_response':
-      return { model: 'haiku', escalate_outside_hours: true, fallback_agent_id: null }
+      return { model: 'claude-haiku-4-5-20251001', escalate_outside_hours: true, fallback_agent_id: null }
 ```
 
 - [ ] **Step 5: Add config editor UI for `send_ai_response`**
@@ -997,15 +1091,17 @@ case 'send_ai_response': {
   return (
     <div className="space-y-3">
       <div className="space-y-1">
-        <label className="text-xs font-medium text-muted-foreground">AI Model</label>
-        <select
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-          value={cfg.model ?? 'haiku'}
+        <label className="text-xs font-medium text-muted-foreground">
+          AI Model <span className="font-normal">(must match your AI_PROVIDER)</span>
+        </label>
+        <Input
+          value={cfg.model ?? 'claude-haiku-4-5-20251001'}
           onChange={(e) => onConfigChange({ ...cfg, model: e.target.value })}
-        >
-          <option value="haiku">Haiku — Fast &amp; Cheap</option>
-          <option value="sonnet">Sonnet — High Quality</option>
-        </select>
+          placeholder="e.g. claude-haiku-4-5-20251001 / gpt-4o-mini / openai/gpt-4o"
+        />
+        <p className="text-xs text-muted-foreground">
+          Anthropic: claude-haiku-4-5-20251001 · OpenAI: gpt-4o-mini · OpenRouter: anthropic/claude-haiku-4-5
+        </p>
       </div>
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Escalate outside school hours</span>
