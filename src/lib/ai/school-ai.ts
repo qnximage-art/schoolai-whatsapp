@@ -34,11 +34,13 @@ export interface GetSuggestedReplyInput {
 
 const UNCERTAINTY_PHRASES = [
   "i don't know",
-  "not sure",
-  "please contact",
-  "i'm unable",
-  "i cannot",
-  "i am unable",
+  "i'm not sure",
+  "i am not sure",
+  "i'm unable to answer",
+  "i cannot answer",
+  "i am unable to answer",
+  "i don't have information",
+  "i do not have information",
 ]
 
 const ESCALATION_KEYWORDS = [
