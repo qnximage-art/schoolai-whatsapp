@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
@@ -183,9 +184,12 @@ export async function POST(request: Request) {
   }
 
   // Process asynchronously so we can ack Meta within their timeout.
-  processWebhook(body).catch((error) => {
+  // waitUntil keeps the Vercel function alive until processing completes —
+  // without it, the function terminates as soon as the 200 is sent and
+  // the automation / AI steps never run.
+  waitUntil(processWebhook(body).catch((error) => {
     console.error('Error processing webhook:', error)
-  })
+  }))
 
   return NextResponse.json({ status: 'received' }, { status: 200 })
 }
