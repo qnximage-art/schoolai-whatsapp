@@ -552,7 +552,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         contactId: args.contactId,
         conversationId,
         messageText: args.context.message_text ?? '',
-        model: cfg.model || 'google/gemma-4-26b-a4b-it:free',
+        model: cfg.model || 'meta-llama/llama-3.2-3b-instruct:free',
         escalate_outside_hours: cfg.escalate_outside_hours ?? true,
       })
       if (result.action === 'reply') {
