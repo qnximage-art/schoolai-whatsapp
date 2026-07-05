@@ -16,6 +16,8 @@ import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel'
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
+import { AiProviderSettings } from '@/components/settings/ai-provider-settings';
+import { AiKnowledgeBaseFormClient } from '@/components/settings/ai-knowledge-base-form-client';
 import {
   resolveSection,
   type SettingsSection,
@@ -61,7 +63,29 @@ export default function SettingsPage() {
     deals: <DealsSettings />,
     members: <MembersTab />,
     api: <ApiKeysSettings />,
-    ai: null,
+    ai: (
+      <div className="space-y-10">
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">AI Provider</h2>
+            <p className="text-sm text-muted-foreground">
+              Configure which AI service powers your auto-replies. Use OpenRouter for free models.
+            </p>
+          </div>
+          <AiProviderSettings />
+        </div>
+        <hr className="border-border" />
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Knowledge Base</h2>
+            <p className="text-sm text-muted-foreground">
+              Fill in your school information. The AI uses this to answer parent questions automatically.
+            </p>
+          </div>
+          <AiKnowledgeBaseFormClient />
+        </div>
+      </div>
+    ),
   };
 
   return (
