@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { AiKnowledgeBaseForm } from "@/components/settings/ai-knowledge-base-form"
+import { AiProviderSettings } from "@/components/settings/ai-provider-settings"
 import type { SchoolKnowledgeBase } from "@/types"
 
 export default async function AiSettingsPage() {
@@ -25,14 +26,30 @@ export default async function AiSettingsPage() {
     .maybeSingle()
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">AI &amp; Knowledge Base</h2>
-        <p className="text-sm text-muted-foreground">
-          Fill in your school information. The AI uses this to answer parent questions automatically.
-        </p>
+    <div className="space-y-10">
+      {/* AI Provider Configuration */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">AI Provider</h2>
+          <p className="text-sm text-muted-foreground">
+            Configure which AI service powers your auto-replies. Use OpenRouter for free models.
+          </p>
+        </div>
+        <AiProviderSettings />
       </div>
-      <AiKnowledgeBaseForm accountId={profile.account_id} initial={kb as SchoolKnowledgeBase | null} />
+
+      <hr className="border-border" />
+
+      {/* Knowledge Base */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Knowledge Base</h2>
+          <p className="text-sm text-muted-foreground">
+            Fill in your school information. The AI uses this to answer parent questions automatically.
+          </p>
+        </div>
+        <AiKnowledgeBaseForm accountId={profile.account_id} initial={kb as SchoolKnowledgeBase | null} />
+      </div>
     </div>
   )
 }
