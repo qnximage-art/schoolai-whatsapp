@@ -6,17 +6,13 @@ export interface AiCallInput {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
-export async function callOpenAI(input: AiCallInput): Promise<string> {
-  // OPENROUTER_API_KEY takes priority so it doesn't conflict with a system-level OPENAI_API_KEY
-  const apiKey = process.env.OPENROUTER_API_KEY ?? process.env.OPENAI_API_KEY
+export async function callOpenAI(input: AiCallInput & { _apiKey?: string; _baseURL?: string }): Promise<string> {
+  const apiKey = input._apiKey ?? process.env.OPENROUTER_API_KEY ?? process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('OPENROUTER_API_KEY (or OPENAI_API_KEY) is not set')
 
   const client = new OpenAI({
     apiKey,
-    // OPENAI_BASE_URL switches between OpenAI and OpenRouter:
-    //   https://api.openai.com/v1      → OpenAI (default if not set)
-    //   https://openrouter.ai/api/v1   → OpenRouter
-    baseURL: process.env.OPENAI_BASE_URL,
+    baseURL: input._baseURL ?? process.env.OPENAI_BASE_URL,
   })
 
   const response = await client.chat.completions.create({

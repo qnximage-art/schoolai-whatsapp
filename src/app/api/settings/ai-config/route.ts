@@ -73,8 +73,23 @@ export async function PUT(request: Request) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { data: profile } = await supabase
+    .from('profiles').select('account_id').eq('user_id', user.id).maybeSingle()
+
   const body = await request.json()
-  const { provider, api_key, model, base_url } = body
+  let { provider, api_key, model, base_url } = body
+
+  // If UI sends USE_SAVED, load the saved key from DB
+  if (api_key === 'USE_SAVED' && profile?.account_id) {
+    const { data: saved } = await supabase
+      .from('ai_provider_config').select('api_key, provider, model, base_url')
+      .eq('account_id', profile.account_id).maybeSingle()
+    if (!saved) return NextResponse.json({ error: 'No saved config found. Save your settings first.' }, { status: 400 })
+    api_key = decrypt(saved.api_key)
+    provider = provider || saved.provider
+    model = model || saved.model
+    base_url = base_url || saved.base_url
+  }
 
   if (!api_key || !model)
     return NextResponse.json({ error: 'api_key and model are required' }, { status: 400 })

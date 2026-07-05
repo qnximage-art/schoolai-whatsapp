@@ -140,7 +140,7 @@ export function AiProviderSettings() {
         {/* Provider */}
         <div className="space-y-1.5">
           <Label>AI Provider</Label>
-          <Select value={provider} onValueChange={handleProviderChange}>
+          <Select value={provider} onValueChange={(v) => v && handleProviderChange(v)}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -184,7 +184,7 @@ export function AiProviderSettings() {
         {/* Model */}
         <div className="space-y-1.5">
           <Label>Model</Label>
-          <Select value={model} onValueChange={setModel}>
+          <Select value={model} onValueChange={(v) => v && setModel(v)}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>

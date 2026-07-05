@@ -6,8 +6,8 @@ export interface AiCallInput {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
-export async function callAnthropic(input: AiCallInput): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+export async function callAnthropic(input: AiCallInput & { _apiKey?: string }): Promise<string> {
+  const apiKey = input._apiKey ?? process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
 
   const client = new Anthropic({ apiKey })

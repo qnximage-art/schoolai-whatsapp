@@ -219,7 +219,7 @@ export async function getAiReply(input: GetAiReplyInput): Promise<AiReplyResult>
 
   let replyText: string
   try {
-    replyText = await callAi({ model, system: systemPrompt, messages })
+    replyText = await callAi({ model, system: systemPrompt, messages, accountId })
   } catch (err) {
     const reason = `AI error: ${err instanceof Error ? err.message : String(err)}`
     // Do NOT persist escalated_at on transient API errors — the next message
