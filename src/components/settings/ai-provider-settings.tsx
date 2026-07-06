@@ -23,12 +23,19 @@ const PROVIDER_MODELS: Record<string, string[]> = {
     'google/gemini-2.0-flash-001',
     'openai/gpt-4o-mini',
   ],
+  gemini: [
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+  ],
   openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
   anthropic: ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-8'],
 }
 
 const PROVIDER_BASE_URLS: Record<string, string> = {
   openrouter: 'https://openrouter.ai/api/v1',
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
   openai: 'https://api.openai.com/v1',
   anthropic: '',
 }
@@ -146,6 +153,7 @@ export function AiProviderSettings() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="openrouter">OpenRouter (free models available)</SelectItem>
+              <SelectItem value="gemini">Google Gemini</SelectItem>
               <SelectItem value="openai">OpenAI</SelectItem>
               <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
             </SelectContent>

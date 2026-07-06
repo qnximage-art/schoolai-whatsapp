@@ -50,6 +50,13 @@ export async function callAi(input: AiCallOptions): Promise<string> {
       if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
       return callAnthropic({ ...input, model, _apiKey: apiKey } as AiCallInput & { _apiKey?: string })
     }
+    case 'gemini': {
+      const { callOpenAI } = await import('./providers/openai')
+      const apiKey = dbConfig?.api_key ?? process.env.GEMINI_API_KEY
+      if (!apiKey) throw new Error('No Gemini API key configured. Set one in Settings → AI.')
+      const baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai'
+      return callOpenAI({ ...input, model, _apiKey: apiKey, _baseURL: baseURL } as AiCallInput & { _apiKey?: string; _baseURL?: string })
+    }
     case 'openai':
     case 'openrouter': {
       const { callOpenAI } = await import('./providers/openai')

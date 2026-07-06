@@ -97,6 +97,7 @@ export async function PUT(request: Request) {
   try {
     let resolvedBaseUrl: string | undefined
     if (provider === 'openrouter') resolvedBaseUrl = 'https://openrouter.ai/api/v1'
+    else if (provider === 'gemini') resolvedBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/openai'
     else if (base_url) resolvedBaseUrl = base_url
 
     const client = new OpenAI({ apiKey: api_key, baseURL: resolvedBaseUrl })
